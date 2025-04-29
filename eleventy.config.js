@@ -1,27 +1,31 @@
+import fs from "fs";
+import path from "path";
 import postcss from "postcss";
 import tailwindcss from "@tailwindcss/postcss";
 
 export default function (eleventyConfig) {
   eleventyConfig.addLayoutAlias("base", "layouts/base.njk");
-  eleventyConfig.addWatchTarget("./src/assets/**/*.{css,js,svg,png,jpeg}");
+  eleventyConfig.addWatchTarget("./src/**/*.{css,js,svg,png,jpeg}");
   eleventyConfig.addPassthroughCopy("./src/js/*");
-  eleventyConfig.addTemplateFormats("css");
-  eleventyConfig.addExtension("css", {
-    outputFileExtension: "css",
-    async compile(inputContent, inputPath) {
-      return async () => {
-        const result = await postcss([tailwindcss()]).process(inputContent, {
-          from: inputPath,
-        });
-        return result.css;
-      };
-    },
-  });
-}
+  eleventyConfig.on("eleventy.before", async () => {
+    const tailwindInputPath = path.resolve("./src/styles/global.css");
+    const tailwindOutputPath = "./dist/styles/global.css";
+    const cssContent = fs.readFileSync(tailwindInputPath, "utf8");
+    const outputDir = path.dirname(tailwindOutputPath);
 
-export const config = {
-  dir: {
-    input: "src",
-    output: "dist",
-  },
-};
+    if (!fs.existsSync(outputDir)) {
+      fs.mkdirSync(outputDir, { recursive: true });
+    }
+
+    const result = await postcss([tailwindcss()]).process(cssContent, {
+      from: tailwindInputPath,
+      to: tailwindOutputPath,
+    });
+
+    fs.writeFileSync(tailwindOutputPath, result.css);
+  });
+
+  return {
+    dir: { input: "src", output: "dist" },
+  };
+}
